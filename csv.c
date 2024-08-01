@@ -303,11 +303,11 @@ void processCsv(const char *csvData, const char *headers, const char *filters)
         }
     }
 
-    int set = 0;
-    int temp_counter = 0;
+    int set = INITIAL_COUNT;
+    int temp_counter = INITIAL_COUNT;
     while (set < row_limit)
     {
-        for (int u = 0; u < not_repeated_filter_size; u++)
+        for (int u = INITIAL_COUNT; u < not_repeated_filter_size; u++)
         {
             int selected_row_value = temp_row_values.values[u * row_limit + set];
             if (selected_row_value == 0)
@@ -322,7 +322,7 @@ void processCsv(const char *csvData, const char *headers, const char *filters)
             seleted_row.values[seleted_row.size++] = set;
         }
 
-        temp_counter = 0;
+        temp_counter = INITIAL_COUNT;
         set++;
     }
 

@@ -272,8 +272,6 @@ void processCsv(const char *csvData, const char *headers, const char *filters)
         }
     }
 
-    // printf("not repeated filter size %d\n", not_repeated_filter_size);
-
     for (int i = INITIAL_COUNT; i < filters_data.filter_size; i++)
     {
         index_sel = INITIAL_COUNT;                         // inicializa o contador de indices das linhas filtradas

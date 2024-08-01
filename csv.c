@@ -173,17 +173,18 @@ void processCsv(const char *csvData, const char *headers, const char *filters)
 
     CsvStruct data;                                     // estrutura que armazena os dados do CSV
     FilterStruct filters_data = processFilter(filters); // estrutura que armazena os dados do filtro
-    SelectedRowStruct select_row;                       // estrutura que armazena os indices das linhas que passaram na filtragem
+    SelectedRowStruct temp_row_values;                  // estrutura que armazena os valores das linhas filtradas temporariamente sendo 0 para que não bateram com o filtro e 1 para que bateram
+    SelectedRowStruct seleted_row;                      // estrutura que armazena os indices das linhas que passaram na filtragem
+    int headers_filtered[MAX_CELL_SIZE];                // array com os indices das colunas que serao filtradas
 
-    int headers_filtered[MAX_CELL_SIZE]; // array com os indices das colunas que serao filtradas
+    int index_sel = INITIAL_COUNT; // inicializa um contador para os indices das colunas filtradas
+    // int column_matched = INITIAL_COUNT;     // inicializa um contador referente as colunas verificas pelo filtro
+    // int column_not_matched = INITIAL_COUNT; // inicializa um contador para contabilizar as colunas nao passaram na verificacao do filtro
 
-    int index_sel = INITIAL_COUNT;          // inicializa um contador para os indices das colunas filtradas
-    int column_matched = INITIAL_COUNT;     // inicializa um contador referente as colunas verificas pelo filtro
-    int column_not_matched = INITIAL_COUNT; // inicializa um contador para contabilizar as colunas nao passaram na verificacao do filtro
-
-    data.columQty = INITIAL_COUNT;   // inicializa a quantidade de colunas
-    data.rowQty = INITIAL_COUNT;     // inicializa a quantidade de linhas
-    select_row.size = INITIAL_COUNT; // inicializa a quantidade de linhas selecionadas
+    data.columQty = INITIAL_COUNT;        // inicializa a quantidade de colunas
+    data.rowQty = INITIAL_COUNT;          // inicializa a quantidade de linhas
+    temp_row_values.size = INITIAL_COUNT; // inicializa a quantidade de valores das linhas filtradas
+    seleted_row.size = INITIAL_COUNT;     // inicializa a quantidade de linhas selecionadas
 
     // processamento dos dados do CSV
 
@@ -259,15 +260,32 @@ void processCsv(const char *csvData, const char *headers, const char *filters)
 
     // verifica depois depois de validadas se as colunas filtradas existem no CSV e armazena os indices das colunas filtradas
 
-    while (index_sel < (data.rowQty / data.columQty))
+    int row_limit = data.rowQty / data.columQty;
+    int not_repeated_filter_size = filters_data.filter_size;
+    int counter = INITIAL_COUNT;
+
+    for (int i = INITIAL_COUNT; i < filters_data.filter_size; i++)
     {
-        for (int i = INITIAL_COUNT; i < filters_data.filter_size; i++)
+        if (headers_filtered[i] == headers_filtered[i - 1] && i > 0)
         {
-            int j = headers_filtered[i]; // indice da coluna filtrada
+            not_repeated_filter_size--;
+        }
+    }
 
-            char *curr_col_val = data.row[index_sel * data.columQty + j]; // valor atual da coluna filtrada
-            char *curr_fil_comp = filters_data.comparators[i];            // comparador atual
+    // printf("not repeated filter size %d\n", not_repeated_filter_size);
 
+    for (int i = INITIAL_COUNT; i < filters_data.filter_size; i++)
+    {
+        index_sel = INITIAL_COUNT;                         // inicializa o contador de indices das linhas filtradas
+        int j = headers_filtered[i];                       // indice da coluna filtrada
+        char *curr_fil_comp = filters_data.comparators[i]; // comparador atual
+        if (headers_filtered[i] == headers_filtered[i - 1] && i > 0)
+        {
+            counter = counter - not_repeated_filter_size;
+        }
+        while (index_sel < row_limit)
+        {
+            char *curr_col_val = data.row[index_sel * data.columQty + j];                        // valor atual da coluna filtrada
             int match_result = matchFilter(curr_col_val, curr_fil_comp, filters_data.values[i]); // resultado da comparacao
 
             if (match_result == FILTER_FAILURE) // verifica validade do filtro
@@ -275,34 +293,49 @@ void processCsv(const char *csvData, const char *headers, const char *filters)
                 fprintf(stderr, "Invalid filter: '%s%s%s'", filters_data.selected_header[i], curr_fil_comp, filters_data.values[i]);
                 exit(EXIT_FAILURE);
             }
-            else if (match_result) // caso de sucesso na comparacao
+
+            temp_row_values.values[temp_row_values.size++] = match_result; // adiciona o indice da linha no array de linhas selecionadas
+            if (temp_row_values.values[counter] == 0 && match_result == 1)
             {
-                column_matched++; // incrementa o contador de colunas verificadas
+                temp_row_values.values[counter] = match_result;
             }
-        }
-        if (column_matched == filters_data.filter_size) // caso todas as colunas tenham passado na verificacao
-        {
-            select_row.values[select_row.size++] = index_sel; // adiciona o indice da linha no array de linhas selecionadas
-        }
-        else
-        {
-            column_not_matched++; // incrementa o contador de colunas nao verificadas
-        }
 
-        if (column_not_matched == (data.rowQty / data.columQty)) // caso nenhuma coluna tenha passado na verificacao
-        {
-            fprintf(stderr, "No colum value matched");
-            exit(EXIT_FAILURE);
+            index_sel++;
+            counter++;
         }
-
-        column_matched = INITIAL_COUNT; // reseta o contador de colunas verificadas
-
-        index_sel++; // incrementa o contador de indices das linhas
     }
 
-    // imprissao dos dados selecionados
-    printSelectedData(true, headers, data);              // imprime os cabeçalhos selecionados
-    printSelectedData(false, headers, data, select_row); // imprime as linhas selecionadas
+    int set = 0;
+    int temp_counter = 0;
+    while (set < row_limit)
+    {
+        for (int u = 0; u < not_repeated_filter_size; u++)
+        {
+            int selected_row_value = temp_row_values.values[u * row_limit + set];
+            if (selected_row_value == 0)
+            {
+                break;
+            }
+
+            temp_counter += selected_row_value;
+        }
+        if (temp_counter == not_repeated_filter_size)
+        {
+            seleted_row.values[seleted_row.size++] = set;
+        }
+
+        temp_counter = 0;
+        set++;
+    }
+
+    if (seleted_row.size == 0)
+    {
+        fprintf(stderr, "No row value matched");
+        exit(EXIT_FAILURE);
+    }
+
+    printSelectedData(true, headers, data);               // imprime os cabeçalhos selecionados
+    printSelectedData(false, headers, data, seleted_row); // imprime as linhas selecionadas
 }
 
 // metodo processCsvFile
